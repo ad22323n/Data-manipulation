@@ -1,7 +1,6 @@
 ---
 title: "Week 3 Challenge"
 author: "Amara Diallo"
-date: "12/30/2018"
 output:
   pdf_document:
     toc: yes
