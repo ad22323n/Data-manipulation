@@ -1,7 +1,6 @@
 ---
 title: "Week 2 Challenge"
-author: "Business Science"
-date: "12/30/2018"
+author: "Amara Diallo"
 output:
   pdf_document:
     toc: yes
