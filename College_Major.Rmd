@@ -13,7 +13,7 @@ library(tidyverse)
 ```{r}
 college_grad <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/recent-grads.csv")
 
-view(college_grad)
+#view(college_grad)
 ```
 
 ```{r}
@@ -163,6 +163,65 @@ college_grad %>%
     filter(n >= 10) %>%
     count(Major_category) %>%
     arrange(desc(n))
+```
+
+```{r}
+#install.packages("esquisse")
+#library(esquisse)
+fresh_grad_select<-college_grad %>% 
+  select (Major, Total, Men, Women, Major_category,Median, Unemployment_rate)
+
+#View(fresh_grad_select)
+
+fresh_grad_select<- fresh_grad_select %>%  mutate(Men_percent = (Men/Total)*100)
+
+fresh_grad_select<-fresh_grad_select %>% mutate(Women_percent=(Women/Total)*100)
+
+#esquisse::esquisser(fresh_grad_select)
+
+ggplot(data = fresh_grad_select) +
+  aes(x = Women_percent, y = Median, color = Major_category) +
+  geom_point() +
+  theme_minimal()
+
+plot(fresh_grad_select$Women_percent, fresh_grad_select$Median)
+
+#View(fresh_grad_select)
+
+
+```
+#======================= CREATING A DATA WHERE MEN_PERCENTAGE< WOMEN_PERCENTACE=====================================
+
+#--------------------FILTERING ------------------------------------
+
+### The below graphs tell us how much money women make in health care profession
+```{r}
+fresh_grad_health<- fresh_grad_select %>% filter(Major_category == 'Health')
+View(fresh_grad_health)
+ggplot(fresh_grad_health, aes(Women_percent, Total, fill=Median))+geom_bar(stat="identity")
+plot(fresh_grad_health$Women_percent, fresh_grad_health$Total) #an outlier above 10000
+```
+
+
+"Majors that are either in the engineering category or have over 1,000 graduates"
+
+```{r}
+fresh_grads_science<- fresh_grad_select %>% filter(Major_category == "Biology & Life Science" | Major_category=="Physical Sciences") %>% glimpse()
+#View(fresh_grads_science)
+```
+
+
+"Recent graduates must have a median salary above 40,000 USD
+More than 40 percent of graduates must be women"
+
+```{r}
+MyMajors<-fresh_grads_science %>% filter(Median >=40000 & Women_percent >40)
+View(MyMajors)
+
+My_majors<-MyMajors %>% arrange(Unemployment_rate, desc(Median))
+View(My_majors)
+```
+
 ```
 
 ### Predict the median of ShareWomen 
