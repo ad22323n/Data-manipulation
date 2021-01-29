@@ -1,0 +1,230 @@
+---
+title: "College Data"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+##This data contain earnings and information of college graduate based on their fields of study, major. In this project, I will try to do some exploratory analysis.I will try do a prediction on the salary if the time allow me
+
+
+### let's start by loading this below packages and our data
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+college_grad <- read.csv("C:/Users/Amara Diallo/Desktop/college_data.txt")
+```
+
+##Let's convert our column in capital letter 
+
+```{r}
+college_grad <- college_grad %>%
+  set_names(names(.) %>% 
+              str_to_title()) 
+
+
+glimpse(college_grad)
+#view(college_grad)
+```
+
+## Here we will look for the Major categories that make more money upon graduation
+### In this section I will do a visualizations of the data in order to find out what major category is leading in term of salary in the job market.
+
+```{r}
+
+college_grad %>% 
+    mutate(Major_category = fct_reorder(Major_category, Median)) %>%
+    ggplot(aes(Major_category, Median)) + 
+    geom_boxplot() +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    coord_flip()
+```
+
+```{r}
+college_grad %>% 
+    group_by(Major_category) %>%
+    summarize(Median = median(Median)) %>%
+    mutate(Major_category = fct_reorder(Major_category, Median)) %>%
+    ggplot(aes(Major_category, Median, fill =Median )) + 
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    coord_flip()
+```
+
+### As we can see above, Engineering student are the one who get more money after graduation and follow by computer&Math students. With Arts & Journalism as the lowest paying job. This finding is based on the current data we have, I am also assuming that this is probably for junior position. But, on the first graph we could point out an outlier, which mean that there is a field in the **Engineering Major** that makes a lot of money than the other field in the ***Engineering***
+
+## In this section, we will find the highest top earning majors in all major category.
+### This will help us extrapolate what is the highest major amont all major category, but it will also allow us to find out what the *OUTLIER IN ENGINEERING* we found in our early graph: The field that makes more money than all other **ENGINEERING** fields.
+
+```{r}
+Majors <- college_grad %>%
+    arrange(desc(Median)) %>%
+    select(Major, Major_category, Median, P25th, P75th, Sample_size)  %>%
+    mutate(Major = fct_reorder(Major, Median)) 
+
+Majors %>% head(30) %>%
+    ggplot(aes(Major, Median, color = Major_category)) +
+    geom_point() +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    coord_flip()
+```
+
+### Most the highest earning majors are from **ENGINEERING** field. We also realized that *PETROLEUM ENGINEERING* is not only the highest paying position in **ENGINEERING** field,  but it is also the highest paying job in all major category...according to this dataset.
+### **ASTRONOMY & ASTROPHYSICS** is the second highest paying job, coming from the *COMPUTER & MATH* Major category;  **ACTUARIAL SCIENCE** is the third and the first in the Business department; 
+
+## The lowest earning Majors
+
+```{r}
+college_grad %>%
+    select(Major, Major_category, Median, P25th, P75th)  %>%
+    tail(15) %>%
+    
+    mutate(Major = fct_reorder(Major, Median)) %>%
+    ggplot(aes(Major, Median,color = Major_category)) +
+    geom_point() +
+    coord_flip()
+```
+
+### The above graph shows the top 15 lowest paying job ** according to this dataset**. *Library Science* is the lowest paying job. As we notice, no field in the **ENGINEERING** is present in this list. 
+
+```{r}
+# Majors  %>%
+#     ggplot(aes(Sample_size, Median)) +
+#     geom_point() +
+#     scale_x_log10()
+# install.packages("tm")           # for text mining 
+# install.packages("SnowballC")    # for text stemming 
+# install.packages("wordcloud")    # word-cloud generator 
+# install.packages("RColorBrewer") # color palettes 
+   
+# Load the packages 
+# library("tm") 
+# library("SnowballC") 
+# library("wordcloud") 
+# library("RColorBrewer")
+# wordcloud(words = Majors$Major_category,  
+#           freq = Majors$Median, 
+#           min.freq = 1,  
+#           max.words =200, 
+#           random.order = TRUE,  
+#           rot.per = 0.35,  
+#           colors = brewer.pal(8, "Dark2")) 
+`````
+
+## Most common majors :
+### This part will tell us what is the major that attact most of students. We are not surprise to see that **BUSINESS** is by far the common major for college students. It is twice attractive than the rest of the major... Specially Engineering. 
+
+```{r}
+college_grad %>%
+    count(Major_category, wt = Total, sort = TRUE) %>%
+    mutate(Major_category = fct_reorder(Major_category,n)) %>%
+    ggplot(aes(Major_category, n, fill = Major_category)) +
+    theme(legend.position = "none") +
+    geom_col() +
+    coord_flip() +
+    scale_y_continuous(labels = scales::number_format()) +
+    labs(y = "Number of graduates in each Major")
+```
+
+## Let's see if we can find the number of graduate in each major category, but based on **gender**.
+
+```{r}
+college_grad %>% 
+    mutate(Major_category = fct_reorder(Major_category, Total)) %>%
+    gather(Gender,Total, Men, Women) %>%
+    group_by(Major_category, Gender) %>%
+    #summarize(Median = median(Median)) %>%
+  
+    ggplot(aes(Major_category,Total, fill = Gender)) +
+    geom_col() +
+    facet_grid(~Gender) +
+    coord_flip() +
+    scale_y_continuous(labels = scales::number_format()) +
+    labs(y = "Total  number of graduates by gender") 
+
+```
+
+### It looks like *MEN* are more STERM oriented than *WOMEN*. As we can, most of the graduate students in Engineering, Computer & MATH are *MEN*. However, it is undeniable that women are ahead in health and social science related majors. Business Major is dominated by both gender.
+
+## which gender earn more money based on top 15 Major
+
+```{r}
+    college_grad %>% 
+    mutate(Major_category = fct_reorder(Major_category, Median)) %>%
+      top_n(20, Median) %>%
+
+    gather(Gender,Median, Men, Women) %>%
+    group_by(Major_category, Gender) %>%
+
+      ggplot(aes(Major, Median, fill = Gender)) +
+    geom_col() +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    labs(y = " ") + 
+
+    coord_flip()
+```
+
+### This above graph tells us that Men are pay more than women even though they are in the same major. this is just a dataset about recent graduate, so we can not totally rely on it. In order to really know the ins and out of this above question, we will need more dataset in order to get a better insight.
+
+## Share of Women in each Major
+
+```{r}
+college_grad %>%
+    group_by(Major_category, Median) %>%
+    summarize_at(vars(Total, Men, Women), sum, na.rm=TRUE) %>%
+    mutate(ShareWomen = Women/Total) %>%
+    arrange(desc(ShareWomen)) %>%
+    
+    ggplot(aes(ShareWomen, Median, color = Major_category)) +
+    geom_jitter() +
+    scale_y_continuous(labels = scales::dollar_format()) 
+```
+
+### The previous plot shows that less .25% of women make more than 50k,that is due to the fact that most of those women that are in the .25% are in the high paying major like STEM. More than .75% are below 45K, that can be explain in their major choise...like **SOCIAL SCIENCE, PSYCHOLOGY, EDUCATION, JOURNALISM ect ** 
+
+### Total Major in each major's category
+
+```{r}
+college_grad %>%
+    select(Major, Major_category, Total, Sharewomen, Sample_size, Median) %>%
+    add_count(Major_category) %>%
+    filter(n >= 10) %>%
+    count(Major_category) %>%
+    arrange(desc(n))
+```
+
+### Let's see how much money Women get in  health care profession: 
+
+```{r}
+college_grad %>% filter(Major_category == 'Health' & Sharewomen >0.7) %>%
+  select(Major, Median)
+#View(fresh_grad_health)
+```
+
+
+### Majors with the lowest unemployment rate that might be interesting for students.
+
+```{r}
+college_grad %>% 
+  select(Major, Unemployment_rate) %>%
+  filter(Unemployment_rate<0.02)
+#View(fresh_grads_science)
+```
+
+
+### Recent graduates with median salary above 40,000 USD where Women are represented by  More than 50 percent.
+
+```{r}
+college_grad %>% filter(Median >=40000 & Sharewomen >.5) %>%
+  select(Major, Median)
+
+```
+
+## CONCLUSION :
+### The above analysis hels us to understand how our major's choice can have an impact on our financial status. this analysis also touch upon the choice of majors based on gender. For instance, we saw that *Men* are more attracted to STEM option, while *WOMEN* dominate health science profession.
+
+
+### Predict the median of ShareWomen 
