@@ -1,30 +1,151 @@
 ---
-title: "Explorary Analysis on Farmer Dog"
+title: "The Farmer Dog"
 author: "Amara Diallo"
-date: "1/3/2021"
-output: html_document
+date: "12/7/2020"
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+library(tidyverse)
+library(ggplot2)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+Looking at only the United States, France, and Spain, what was the median revenue in 2013? (Taking the three countries together in aggregate) *
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+`The.Farmer's.Dog` <- read.csv("C:/Users/User/Desktop/The Farmer's Dog.csv")
+
+median_2013 <- `The.Farmer's.Dog` %>%
+    select(country, year, revenue) %>%
+    filter(country %in% c('US','FR', 'ES'), year =="2013") %>%
+    
+    #group_by(country, year) %>%
+    summarize(median_3_country= median(revenue))
+
+median_2013
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Was it more or less than 2012? *
+
+```{r}
+median_2012 <- `The.Farmer's.Dog` %>%
+    select(country, year, revenue) %>%
+    filter(country %in% c('US','FR', 'ES'), year =="2012") %>%
+    
+    #group_by(country, year) %>%
+    summarize(median_3_country= median(revenue))
+
+median_2012
+```
+
+What drove that difference? *
+
+```{r}
+drove_2012 <- `The.Farmer's.Dog` %>%
+    select(country, year, revenue,product_group) %>%
+    filter(country %in% c('US','FR', 'ES'), year =="2012") %>%
+    
+    group_by(country,product_group) %>%
+    summarize(revenue_m= median(revenue),
+              sum_revenue = sum(revenue)) %>%
+    mutate(product_group = product_group %>% 
+               as_factor() %>% fct_reorder(revenue_m)) %>%
+    
+    arrange(desc(revenue_m)) %>%
+    ungroup()
+
+drove_2012
+```
+
+```{r}
+# drove_2013 <- `The.Farmer's.Dog` %>%
+#     select(country, year, revenue, product_group) %>%
+#     filter(country %in% c('US','FR', 'ES'), year =="2013") %>%
+#     
+#     group_by( country,product_group) %>%
+#     summarize(revenue_m= median(revenue),
+#               sum_revenue = sum(revenue)) %>%
+#     ungroup()
+# 
+# drove_2013
+
+ 
+drove_2013 <- `The.Farmer's.Dog` %>%
+    select(country, year, revenue,product_group) %>%
+    filter(country %in% c('US','FR', 'ES'), year =="2013") %>%
+    
+    group_by(country,product_group) %>%
+    summarize(revenue_m= median(revenue),
+              sum_revenue = sum(revenue)) %>%
+    mutate(product_group = product_group %>% 
+               as_factor() %>% fct_reorder(revenue_m)) %>%
+    
+    arrange(desc(revenue_m)) %>%
+    ungroup()
+
+drove_2013
+
+drove_2013 %>%
+    ggplot(aes(product_group, revenue_m, fill = country)) +
+    geom_col() +
+    scale_y_continuous(labels = scales::dollar_format(scale = 1e-6, suffix = "M")) +
+    coord_flip()
+```
+
+Looking now at all countries, which product group had the biggest decline in median revenue from 2013 to 2014, by dollar amount? *
+
+```{r}
+biggest_decline_prod <- `The.Farmer's.Dog` %>%
+    select(country, year, revenue,product_group) %>%
+    filter(year %in% c("2013", "2014")) %>%
+    
+    group_by(year, product_group) %>%
+    summarize(revenue_m= median(revenue)) %>%
+    
+    arrange(desc(product_group)) %>%
+    ungroup() 
+
+biggest_decline_prod
+
+
+```
+
+Looking now at all countries, which product group had the biggest decline in median revenue from 2013 to 2014, by percent change? 
+
+```{r}
+# biggest_decline_prod %>%
+#     mutate(revenue_m_dif = lag(revenue_m, n =1)) %>%
+#     mutate(revenue_m_dif = case_when(
+#         is.na(revenue_m_dif) ~ revenue_m,
+#         TRUE ~ revenue_m_dif
+#     )) %>%
+#     
+#     mutate(diff_1 = revenue_m - revenue_m_dif) %>%
+#     mutate(pct_diff_1 = diff_1/revenue_m_dif) %>%
+#     mutate(pct_diff_1_chr = scales::percent(pct_diff_1, accuracy = 3)) %>%
+#     
+#     select(year, product_group,revenue_m, pct_diff_1_chr) %>%
+#     filter(product_group=='clothing') %>%
+#     arrange(desc(product_group))
+
+
+biggest_decline_prod %>%
+    group_by(product_group) %>%
+    mutate(pct_change = (revenue_m/lag(revenue_m)-1) * 100) %>%
+    mutate(pct_change = scales::percent(pct_change,scale = 3)) %>%
+    
+    filter(product_group=='clothing') 
+    
+    #arrange(year, .by_group = TRUE)
+
+
+```
+
+
