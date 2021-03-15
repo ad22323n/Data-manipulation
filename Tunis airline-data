@@ -1,0 +1,267 @@
+---
+title: "Flight Delay  Challenge"
+author: "Amara Diallo"
+date: "2/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(tidyquant)
+library(lubridate)
+```
+
+## Loading The data ----
+
+```{r}
+Flight <- read.csv("C:/Users/Amara Diallo/Downloads/Train (2).csv")
+#str(Train)
+#summary(Flight)
+str(Flight)
+#view(Flight)
+```
+## Date conversion ----
+
+ we will transform our date columns to make sure we have the years, months and days in their respective columns
+
+* DATOP - Date of flight
+* STD - Scheduled Time departure
+* STA - Scheduled Time arrival
+
+Since this data is all about Tunisian air line, we will prefer remove the TU in front of the number:
+
+* FLTID - Flight number: TU 0712 ==> We will only keep 0712 for now
+* AC - Aircraft Code: TU 32AIMN ==> We will only be interested in 32AIMN 
+
+and create a variable that will help us know what the actual time that elapsed. We might look at schedule Time departure and scheduled time arrival, this will probably help us know the actual time as "Arrival Time: AT"
+
+
+```{r warning=FALSE}
+Tunis_tbl <- Flight %>% select(DATOP, STD, STA, everything()) %>%
+  mutate(DATOP = ymd(DATOP),
+         STD = ymd_hms(STD),
+         STA = ymd_hms(STA)) %>%
+  
+         #DATOP - Date of flight
+  mutate(DATOP_Y = year(DATOP),
+         DATOP_M = month(DATOP),
+         DATOP_D = day(DATOP),
+         
+         #STD - Scheduled Time departure
+         STD_Y = year(STD),
+         STD_M = month(STD),
+         STD_D = day(STD),
+         STD_H = hour(STD),
+         STD_Min = minute(STD),
+         
+         #STA - Scheduled Time arrival
+         STA_Y = year(STA),
+         STA_M = month(STA),
+         STA_D = day(STA),
+         STA_min = minute(STA)) %>%
+    
+  separate(ID, into = c("train_ID","ID"), sep = "_id_", remove = TRUE) %>%
+  # FLTID - Flight number,AC - Aircraft Code
+  separate(FLTID, into = c("TU", "FLTID"), sep = " ",remove = TRUE) %>%
+  separate(AC, into = c("TU", "AC"), sep = " ", remove = TRUE) %>%
+  
+  # Creating our actual time to arrive
+  
+  mutate(
+    ATA = difftime(STA, STD, units = "auto") # - difftime(STD,units = "hour") 
+  ) %>%
+  
+  select(-DATOP, -STA, -STD, -train_ID, -TU)
+
+```
+
+ Let's convert all the columns name into lower case 
+ 
+```{r}
+
+Tunis_tbl <-  Tunis_tbl %>%
+  rename_with(str_to_lower) 
+
+view(Tunis_tbl)
+```
+
+## Time based data grouping ----
+
+This part will consist of grouping our data based on year, months and perhaps day: This is will help us have an idea on the longest delay... Since target is the column that identify the Time of delay in minute, we will mainly focus on aggregating on that column
+
+## DATOP - Date of flight analysis ----
+### Yearly delay ----
+
+```{r}
+Tunis_tbl %>%
+  #distinct(depstn) %>%
+  select(datop_y, target) %>%
+  group_by(datop_y) %>%
+  summarise(Total_delay = sum(target)) %>%
+  ungroup() 
+
+```
+
+As we can see above, time of delay incease as we advance in year. 2018 has the highest delay time and 2016 has the lowest. We most understand that these number are in munite.
+
+## Monthly delay ----
+
+August and July have the highest delay period time the rest of the months. They are almost twice the delay time of January through December. This may be due to the vaccation time, becasue during summer many people take vacation and travel and it is also the busiest period of year. These months are not for particular year, but all the year in the dataset.
+
+```{r}
+Tunis_tbl %>%
+  #distinct(depstn) %>%
+  select(datop_m, target) %>%
+  mutate(datop_m = month(datop_m,label = TRUE)) %>%
+  group_by(datop_m) %>%
+  summarise(Monthly_delay = sum(target)) %>%
+  ungroup() %>%
+  arrange(desc(Monthly_delay))
+```
+
+## Measuring Change ----
+
+We will try to see the difference from most recent observation, to see the variation from a month from each year to another month from the same year, and so...
+
+ 
+```{r}
+Tunis_tbl %>%
+  #distinct(depstn) %>%
+  select(datop_y,datop_m, target) %>%
+  mutate(datop_m = month(datop_m, label  = TRUE)) %>%
+  group_by(datop_y, datop_m) %>%
+  summarise(Total_delay = sum(target)) %>%
+  ungroup() %>%
+  
+  mutate(Jan_delay = first(Total_delay)) %>%
+  mutate(diff_jan = Total_delay - Jan_delay,
+         pct_dif_jan = diff_jan/Jan_delay, 
+         pct_dif_jan = scales::percent(pct_dif_jan)) %>%
+  
+  select(datop_y, datop_m, Total_delay, pct_dif_jan) %>%
+  arrange(desc(datop_y))
+
+ 
+```
+## Difference from first observation ----
+
+In this section, we are analyzing the difference between the first month delay time from the second and so on. We are substracting the first value from the second in order to find the difference between the 2 observations. 
+
+- The first table is the difference between the months from January to December, from all 3 years (2016,2017,2018)
+- The second table is the difference from the 3 years, starting from the first one.
+
+```{r}
+
+Tunis_tbl %>%
+  select( datop_m, target) %>%
+  
+  group_by(datop_m) %>%
+  summarise(target = sum(target)) %>%
+  ungroup() %>%
+
+  
+  mutate(delay_ = first(target)) %>%
+  mutate(diff_delay = target - delay_) %>%
+  mutate(pct_diff = diff_delay/ delay_ ) %>%
+  mutate(pct_diff = scales::percent(pct_diff))
+
+
+Tunis_tbl %>%
+  select(datop_y, datop_m, target) %>%
+  
+  group_by(datop_y) %>%
+  summarise(target = sum(target)) %>%
+  
+  mutate(delay_ = first(target)) %>%
+  mutate(diff_delay = target - delay_) %>%
+  mutate(pct_diff = diff_delay/ delay_ ) %>%
+  mutate(pct_diff = scales::percent(pct_diff))
+```
+
+## Longest delay day ----
+
+As we can see below, the 29th, 22nd and the 28th are the day that have recorded the highest delay among the 30 days in the month.
+
+```{r}
+Tunis_tbl %>%
+  #distinct(depstn) %>%
+  select(datop_d, target) %>%
+  group_by(datop_d) %>%
+  summarise(daily_delay = sum(target)) %>%
+  ungroup() %>%
+  arrange(desc(daily_delay))
+```
+
+### AT - Arrival Time: Scheduled Time departure - Scheduled Time arrival ----
+
+```{r}
+Tunis_tbl %>%
+  select(datop_y, ata) %>%
+  group_by(datop_y) %>%
+  summarise(Total_delay = sum(ata)) %>%
+  ungroup() 
+```
+
+So this above finding tell us that the amount of time it takes to get from one place to another, we should be aware that this is in minute. In addition, this is the schedule time, assuming that that there is no delay or no change in the time. 
+
+
+```{r}
+Tunis_tbl %>%
+  select(datop_m, ata) %>%
+  mutate(datop_m = month(datop_m,label = TRUE)) %>%
+  group_by(datop_m) %>%
+  summarise(daily_delay = sum(ata)) %>%
+  ungroup() %>%
+  arrange(desc(daily_delay))
+```
+
+The previous table show the delay amount in minute in each month, as you can see, March is the busiest month in term of delay with **2871605 mins** accumulated followed by **November** & **October**
+
+```{r}
+Tunis_tbl %>% 
+  select(ata, arrstn,depstn, datop_y) %>%
+  group_by( depstn, datop_y) %>%
+  summarize(time_to_arrvl = sum(ata)) %>%
+  top_n(n = 15, wt = time_to_arrvl)
+```
+
+## Cumulative Calculations ----
+
+We will be adding up a sequence of partial sum using the cumulative sum function over the 3 years, based on our data we are summarizing 
+
+```{r}
+
+Tunis_tbl %>% 
+  select(datop_m, ata) %>%
+  group_by(datop_m) %>%
+  summarize(arrival_tim = sum(ata)) %>%
+  
+mutate(arrival_tim = as.character(arrival_tim)) %>%
+separate(col = arrival_tim, into ="Delay") %>%
+  
+mutate(cum_time = cumsum(Delay),
+       cum_pct = cum_time/sum(as.numeric(Delay)),
+       cum_time_chr = scales::percent(cum_pct),
+       cum_time_avg = cummean(Delay))
+
+Tunis_tbl %>% 
+  select(datop_y, ata) %>%
+  group_by(datop_y) %>%
+  summarize(arrival_tim = sum(ata)) %>%
+  
+mutate(arrival_tim = as.character(arrival_tim)) %>%
+separate(col = arrival_tim, into ="Delay") %>%
+  
+mutate(cum_time = cumsum(Delay),
+       cum_pct = cum_time/sum(as.numeric(Delay)),
+       cum_time_chr = scales::percent(cum_pct),
+       cum_time_avg = cummean(Delay))
+       
+
+```
+
