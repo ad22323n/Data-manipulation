@@ -147,5 +147,3 @@ biggest_decline_prod %>%
 
 
 ```
-
-
